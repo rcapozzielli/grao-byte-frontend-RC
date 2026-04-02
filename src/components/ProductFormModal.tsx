@@ -1,4 +1,4 @@
-import { useState, useEffect, type FormEvent } from 'react'
+import { useState, useEffect } from 'react'
 import type { Product, ProductInput } from '../services/products'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
@@ -51,7 +51,7 @@ export default function ProductFormModal({ open, onClose, onSubmit, product }: P
         category: product.category,
         available: product.available,
       })
-      setPriceInput(String(product.price))
+      setPriceInput(product.price.toFixed(2))
     } else {
       setForm(EMPTY)
       setPriceInput('')
@@ -74,7 +74,7 @@ export default function ProductFormModal({ open, onClose, onSubmit, product }: P
     return Object.keys(newErrors).length === 0
   }
 
-  async function handleSubmit(e: FormEvent) {
+  async function handleSubmit(e: { preventDefault(): void }) {
     e.preventDefault()
     if (!validate()) return
     setLoading(true)

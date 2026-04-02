@@ -8,14 +8,15 @@ import ProductFormModal from '../components/ProductFormModal'
 import DeleteConfirmModal from '../components/DeleteConfirmModal'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
+import { Coffee, Croissant, Cookie, GlassWater, UtensilsCrossed, Search, X, type LucideIcon } from 'lucide-react'
 
 const CATEGORY_ORDER = ['Café', 'Salgado', 'Doce', 'Bebida']
 
-const CATEGORY_ICONS: Record<string, string> = {
-  'Café': '☕',
-  'Salgado': '🥐',
-  'Doce': '🍰',
-  'Bebida': '🥤',
+const CATEGORY_ICONS: Record<string, LucideIcon> = {
+  'Café':    Coffee,
+  'Salgado': Croissant,
+  'Doce':    Cookie,
+  'Bebida':  GlassWater,
 }
 
 export default function DashboardPage() {
@@ -24,6 +25,7 @@ export default function DashboardPage() {
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [activeCategory, setActiveCategory] = useState<string | null>(null)
+  const [activeAvailability, setActiveAvailability] = useState<boolean | null>(null)
 
   const [formOpen, setFormOpen] = useState(false)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
@@ -64,9 +66,10 @@ export default function DashboardPage() {
     return products.filter((p) => {
       const matchesSearch = !query || p.name.toLowerCase().includes(query)
       const matchesCategory = !activeCategory || p.category === activeCategory
-      return matchesSearch && matchesCategory
+      const matchesAvailability = activeAvailability === null || p.available === activeAvailability
+      return matchesSearch && matchesCategory && matchesAvailability
     })
-  }, [products, search, activeCategory])
+  }, [products, search, activeCategory, activeAvailability])
 
   const grouped = useMemo(() => {
     if (activeCategory) return [[activeCategory, filtered]] as [string, Product[]][]
@@ -75,6 +78,9 @@ export default function DashboardPage() {
     for (const p of filtered) {
       if (!map[p.category]) map[p.category] = []
       map[p.category].push(p)
+    }
+    for (const cat of Object.keys(map)) {
+      map[cat].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))
     }
     return Object.entries(map).sort(([a], [b]) => {
       const ia = CATEGORY_ORDER.indexOf(a)
@@ -102,14 +108,29 @@ export default function DashboardPage() {
   }
 
   async function handleFormSubmit(data: ProductInput) {
-    if (editingProduct) {
-      const updated = await updateProduct(editingProduct._id, data)
+    try {
+      if (editingProduct) {
+        const updated = await updateProduct(editingProduct._id, data)
+        setProducts((prev) => prev.map((p) => (p._id === updated._id ? updated : p)))
+        toast.success('Produto atualizado!')
+      } else {
+        const created = await createProduct(data)
+        setProducts((prev) => [...prev, created])
+        toast.success('Produto adicionado!')
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao salvar produto')
+      throw err
+    }
+  }
+
+  async function handleToggle(product: Product) {
+    try {
+      const updated = await updateProduct(product._id, { ...product, available: !product.available })
       setProducts((prev) => prev.map((p) => (p._id === updated._id ? updated : p)))
-      toast.success('Produto atualizado!')
-    } else {
-      const created = await createProduct(data)
-      setProducts((prev) => [...prev, created])
-      toast.success('Produto adicionado!')
+      toast.success(updated.available ? `"${updated.name}" marcado como disponível.` : `"${updated.name}" marcado como indisponível.`)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao atualizar disponibilidade')
     }
   }
 
@@ -132,12 +153,31 @@ export default function DashboardPage() {
       <Navbar />
 
       <main className="max-w-screen-2xl mx-auto px-8 py-10">
+        {/* Métricas */}
+        {!loading && !error && products.length > 0 && (
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            {[
+              { label: 'Total de produtos', value: products.length },
+              { label: 'Disponíveis', value: products.filter(p => p.available).length, color: 'text-green-600' },
+              { label: 'Indisponíveis', value: products.filter(p => !p.available).length, color: 'text-red-500' },
+              { label: 'Preço médio', value: (products.reduce((s, p) => s + p.price, 0) / products.length).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) },
+            ].map(({ label, value, color }) => (
+              <div key={label} className="bg-card rounded-xl border px-6 py-4">
+                <p className="text-sm text-muted-foreground mb-1">{label}</p>
+                <p className={`text-3xl font-bold ${color ?? 'text-foreground'}`}>{value}</p>
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h2 className="text-3xl font-bold text-foreground">Produtos</h2>
+            <h2 className="text-3xl font-bold text-foreground">Cardápio</h2>
             <p className="text-base text-muted-foreground mt-1">
-              {products.length} {products.length === 1 ? 'item' : 'itens'} no cardápio
+              {filtered.length !== products.length
+                ? `${filtered.length} de ${products.length} itens`
+                : `${products.length} ${products.length === 1 ? 'item' : 'itens'} no cardápio`}
             </p>
           </div>
           <Button onClick={openCreate} size="lg" className="text-xl px-8 py-6 transition-transform hover:scale-[1.02] hover:shadow-md">
@@ -147,8 +187,9 @@ export default function DashboardPage() {
 
         {!loading && !error && products.length > 0 && (
           <>
-            {/* Category tabs */}
-            <div className="flex flex-wrap gap-3 mb-6">
+            {/* Tabs */}
+            <div className="flex flex-wrap items-center gap-3 mb-6">
+              {/* Category tabs */}
               <button
                 onClick={() => setActiveCategory(null)}
                 className={`px-6 py-3 rounded-xl text-lg font-semibold border-2 transition-colors cursor-pointer ${
@@ -169,19 +210,49 @@ export default function DashboardPage() {
                       : 'bg-card text-foreground border-border hover:border-primary/50'
                   }`}
                 >
-                  <span>{CATEGORY_ICONS[cat] ?? '🍽️'}</span>
+                  {(() => { const Icon = CATEGORY_ICONS[cat] ?? UtensilsCrossed; return <Icon className="w-5 h-5" /> })()}
                   {cat}
                 </button>
               ))}
+
+              {/* Divider */}
+              <div className="w-1 self-stretch bg-border rounded-full mx-1" />
+
+              {/* Availability tabs */}
+              {([{ label: 'Disponível', value: true }, { label: 'Indisponível', value: false }] as const).map(({ label, value }) => (
+                <button
+                  key={label}
+                  onClick={() => setActiveAvailability(activeAvailability === value ? null : value)}
+                  className={`px-6 py-3 rounded-xl text-lg font-semibold border-2 transition-colors cursor-pointer ${
+                    activeAvailability === value
+                      ? 'bg-primary text-primary-foreground border-primary'
+                      : 'bg-card text-foreground border-border hover:border-primary/50'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+
+              {/* Clear filters */}
+              {(activeCategory !== null || activeAvailability !== null || search) && (
+                <button
+                  onClick={() => { setActiveCategory(null); setActiveAvailability(null); setSearch('') }}
+                  className="flex items-center gap-1.5 px-4 py-3 rounded-xl text-base font-medium border-2 border-dashed border-border text-muted-foreground hover:border-destructive hover:text-destructive transition-colors cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                  Limpar filtros
+                </button>
+              )}
             </div>
 
             {/* Search */}
-            <div className="mb-8">
+            <div className="mb-8 relative max-w-lg">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground pointer-events-none" />
               <Input
                 placeholder="Buscar produto por nome..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="h-12 text-base max-w-lg"
+                className="h-12 text-base pl-10"
               />
             </div>
           </>
@@ -223,21 +294,23 @@ export default function DashboardPage() {
               <section key={category}>
                 {!activeCategory && (
                   <div className="flex items-center gap-3 mb-4">
-                    <span className="text-3xl">{CATEGORY_ICONS[category] ?? '🍽️'}</span>
-                    <h3 className="text-2xl font-semibold text-foreground">{category}</h3>
+                    {(() => { const Icon = CATEGORY_ICONS[category] ?? UtensilsCrossed; return <Icon className="w-9 h-9 text-primary" /> })()}
+                    <h3 className="text-3xl font-semibold text-foreground">{category}</h3>
                     <span className="text-sm text-muted-foreground bg-muted px-2.5 py-0.5 rounded-full">
                       {items.length} {items.length === 1 ? 'item' : 'itens'}
                     </span>
                   </div>
                 )}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {items.map((product) => (
-                    <ProductCard
-                      key={product._id}
-                      product={product}
-                      onEdit={openEdit}
-                      onDelete={openDelete}
-                    />
+                  {items.map((product, i) => (
+                    <div key={product._id} className="card-animate" style={{ animationDelay: `${i * 50}ms` }}>
+                      <ProductCard
+                        product={product}
+                        onEdit={openEdit}
+                        onDelete={openDelete}
+                        onToggle={handleToggle}
+                      />
+                    </div>
                   ))}
                 </div>
               </section>
