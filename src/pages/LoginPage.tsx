@@ -35,9 +35,7 @@ export default function LoginPage() {
       <div className="w-full max-w-xl">
         {/* Logo / Header */}
         <div className="text-center mb-10">
-          <div className="inline-flex items-center justify-center w-24 h-24 rounded-3xl bg-primary text-primary-foreground text-5xl mb-6">
-            ☕
-          </div>
+          <img src="/Logo.png" alt="Grão & Byte" className="h-50 w-auto mx-auto -mb-10" />
           <h1 className="text-5xl font-bold text-primary">Grão & Byte</h1>
           <p className="text-muted-foreground mt-2 text-lg">Sistema de gestão de produtos</p>
         </div>

@@ -67,7 +67,8 @@ export default function ProductFormModal({ open, onClose, onSubmit, product }: P
   function validate(): boolean {
     const newErrors: Record<string, string> = {}
     if (!form.name.trim()) newErrors.name = 'O nome do produto é obrigatório.'
-    if (form.price < 0 || isNaN(form.price)) newErrors.price = 'Informe um preço válido (maior ou igual a zero).'
+    if (!form.description.trim()) newErrors.description = 'A descrição do produto é obrigatória.'
+    if (priceInput.trim() === '' || form.price < 0 || isNaN(form.price)) newErrors.price = 'Informe um preço válido (maior ou igual a zero).'
     if (!form.category) newErrors.category = 'Selecione uma categoria.'
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
@@ -117,8 +118,9 @@ export default function ProductFormModal({ open, onClose, onSubmit, product }: P
               onChange={(e) => set('description', e.target.value)}
               placeholder="Ex: Espresso com leite vaporizado e espuma"
               rows={4}
-              className="text-lg"
+              className={`text-lg ${errors.description ? 'border-destructive focus-visible:ring-destructive' : ''}`}
             />
+            {errors.description && <p className="text-sm text-destructive">{errors.description}</p>}
           </div>
 
           {/* Preço e Categoria */}
@@ -179,7 +181,7 @@ export default function ProductFormModal({ open, onClose, onSubmit, product }: P
             <Button type="button" variant="outline" size="lg" onClick={onClose} disabled={loading} className="text-lg">
               Cancelar
             </Button>
-            <Button type="submit" size="lg" disabled={loading} className="text-base hover:brightness-110 transition-all active:scale-95">
+            <Button type="submit" size="lg" disabled={loading} className="text-lg hover:scale-[1.02] transition-transform">
               {loading ? 'Salvando...' : isEdit ? 'Salvar alterações' : 'Adicionar produto'}
             </Button>
           </DialogFooter>
