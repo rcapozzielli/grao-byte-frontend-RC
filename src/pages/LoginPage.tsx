@@ -20,8 +20,8 @@ export default function LoginPage() {
     e.preventDefault()
     setLoading(true)
     try {
-      const token = await loginUser(email, password)
-      login(token)
+      const { token, user } = await loginUser(email, password)
+      login(token, user.name, user.role)
       navigate('/')
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao fazer login')

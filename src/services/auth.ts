@@ -2,9 +2,14 @@ import { apiPost } from './api'
 
 interface LoginResponse {
   token: string
+  user: {
+    _id: string
+    name: string
+    email: string
+    role: 'admin' | 'employee'
+  }
 }
 
-export async function loginUser(email: string, password: string): Promise<string> {
-  const data = await apiPost<LoginResponse>('/api/auth/login', { email, password })
-  return data.token
+export async function loginUser(email: string, password: string): Promise<LoginResponse> {
+  return apiPost<LoginResponse>('/api/auth/login', { email, password })
 }
